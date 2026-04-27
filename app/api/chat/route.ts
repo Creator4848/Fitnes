@@ -20,37 +20,56 @@ Tizimimizda mavjud bo'limlar:
 
 Qisqa, aniq va foydali javoblar bering. Doimo samimiy va professional bo'ling.`;
 
+// Supported models (fallback order)
+const MODELS = [
+  'llama-3.1-8b-instant',
+  'llama3-8b-8192',
+  'gemma2-9b-it',
+];
+
 export async function POST(request: Request) {
+  const apiKey = process.env.GROQ_API_KEY;
+
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: 'GROQ_API_KEY sozlanmagan. Vercel → Settings → Environment Variables ga qo\'shing.' },
+      { status: 500 }
+    );
+  }
+
   try {
     const { messages } = await request.json();
+    const groq = new Groq({ apiKey });
 
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json(
-        { error: 'GROQ_API_KEY sozlanmagan. Vercel muhit o\'zgaruvchilarini tekshiring.' },
-        { status: 500 }
-      );
+    let lastError: Error | null = null;
+
+    for (const model of MODELS) {
+      try {
+        const completion = await groq.chat.completions.create({
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...messages,
+          ],
+          model,
+          max_tokens: 1024,
+          temperature: 0.7,
+        });
+
+        const responseMessage = completion.choices[0]?.message?.content || 'Kechirasiz, javob ololmadim.';
+        return NextResponse.json({ message: responseMessage });
+      } catch (err) {
+        lastError = err as Error;
+        console.error(`Model ${model} failed:`, err);
+        continue;
+      }
     }
 
-    // Lazy init — handler ichida yaratiladi, build vaqtida emas
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-    const completion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...messages,
-      ],
-      model: 'llama3-8b-8192',
-      max_tokens: 1024,
-      temperature: 0.7,
-    });
-
-    const responseMessage = completion.choices[0]?.message?.content || 'Kechirasiz, javob ololmadim.';
-
-    return NextResponse.json({ message: responseMessage });
+    throw lastError;
   } catch (error) {
-    console.error('Chat error:', error);
+    const msg = error instanceof Error ? error.message : 'Noma\'lum xatolik';
+    console.error('Chat error:', msg);
     return NextResponse.json(
-      { error: 'AI xizmati bilan bog\'lanishda xatolik yuz berdi.' },
+      { error: `AI xatolik: ${msg}` },
       { status: 500 }
     );
   }

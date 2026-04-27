@@ -70,6 +70,7 @@ export default function PaymentsPage() {
   const [filterMonth, setFilterMonth] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [summary, setSummary] = useState({ total: 0, completed: 0, count: 0 });
+  const [saveError, setSaveError] = useState('');
 
   const fetchPayments = async () => {
     setLoading(true);
@@ -130,6 +131,7 @@ export default function PaymentsPage() {
   const handleSave = async () => {
     if (!form.member_id || !form.amount) return;
     setSaving(true);
+    setSaveError('');
     try {
       const body = {
         member_id: parseInt(form.member_id),
@@ -140,21 +142,30 @@ export default function PaymentsPage() {
         status: form.status,
         notes: form.notes,
       };
+      let res;
       if (editPayment) {
-        await fetch(`/api/payments/${editPayment.id}`, {
+        res = await fetch(`/api/payments/${editPayment.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
       } else {
-        await fetch('/api/payments', {
+        res = await fetch('/api/payments', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
       }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setSaveError(err.error || `Xatolik: ${res.status}`);
+        return;
+      }
       setShowModal(false);
       fetchPayments();
+    } catch (e) {
+      setSaveError('Serverga ulanishda xatolik yuz berdi.');
+      console.error(e);
     } finally {
       setSaving(false);
     }
@@ -383,8 +394,13 @@ export default function PaymentsPage() {
                   className="w-full border border-sky-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none" />
               </div>
             </div>
+            {saveError && (
+              <div className="mx-6 mb-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                {saveError}
+              </div>
+            )}
             <div className="px-6 py-4 border-t border-sky-100 flex gap-3 justify-end">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm">Bekor</button>
+              <button onClick={() => { setShowModal(false); setSaveError(''); }} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-sm">Bekor</button>
               <button onClick={handleSave} disabled={saving || !form.member_id || !form.amount}
                 className="px-5 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-300 text-white rounded-xl text-sm font-medium">
                 {saving ? 'Saqlanmoqda...' : (editPayment ? 'Saqlash' : 'Qo\'shish')}
