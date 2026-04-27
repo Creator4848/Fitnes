@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +10,7 @@ import {
   Dumbbell,
   Menu,
   X,
+  LogOut,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -22,7 +23,14 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  };
 
   return (
     <>
@@ -87,11 +95,19 @@ export default function Sidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-4 border-t border-sky-100">
+        <div className="px-4 py-4 border-t border-sky-100 space-y-2">
           <div className="bg-sky-50 rounded-xl p-3 text-center">
             <p className="text-xs text-sky-600 font-medium">FitPro v1.0</p>
             <p className="text-xs text-sky-400 mt-0.5">Fitnes markazi boshqaruvi</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
+                       text-sm font-medium text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <LogOut size={16} />
+            Chiqish
+          </button>
         </div>
       </aside>
     </>
