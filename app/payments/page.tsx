@@ -50,11 +50,11 @@ const emptyForm = {
 
 function formatDate(d: string) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return (() => { const dt = new Date(d); return String(dt.getDate()).padStart(2,'0') + '.' + String(dt.getMonth()+1).padStart(2,'0') + '.' + dt.getFullYear(); })();
 }
 
 function formatMoney(n: number) {
-  return new Intl.NumberFormat('uz-UZ').format(n) + ' so\'m';
+  return n.toLocaleString('ru-RU') + ' so\'m';
 }
 
 export default function PaymentsPage() {

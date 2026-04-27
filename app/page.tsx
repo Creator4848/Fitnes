@@ -34,13 +34,25 @@ interface ExpiringMember {
 }
 
 function formatMoney(amount: number) {
-  return new Intl.NumberFormat('uz-UZ').format(amount) + ' so\'m';
+  if (!amount || isNaN(amount)) return "0 so'm";
+  try {
+    return new Intl.NumberFormat('ru-RU').format(amount) + " so'm";
+  } catch {
+    return amount.toLocaleString() + " so'm";
+  }
 }
 
 function formatDate(date: string) {
-  return new Date(date).toLocaleDateString('uz-UZ', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  });
+  if (!date) return '—';
+  try {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  } catch {
+    return date;
+  }
 }
 
 function daysLeft(date: string) {
@@ -48,10 +60,22 @@ function daysLeft(date: string) {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 
+function getTodayString() {
+  const d = new Date();
+  const days = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+  const months = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
+  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbInitialized, setDbInitialized] = useState(false);
+  const [todayStr, setTodayStr] = useState('');
+
+  useEffect(() => {
+    setTodayStr(getTodayString());
+  }, []);
 
   const initDb = async () => {
     try {
@@ -67,7 +91,9 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/dashboard');
       const json = await res.json();
-      setData(json);
+      if (json && !json.error) {
+        setData(json);
+      }
     } catch (e) {
       console.error('Dashboard fetch error', e);
     } finally {
@@ -81,16 +107,16 @@ export default function DashboardPage() {
 
   const stats = data ? [
     {
-      label: 'Faol A\'zolar',
-      value: data.totalMembers,
+      label: "Faol A'zolar",
+      value: data.totalMembers ?? 0,
       suffix: 'ta',
       icon: Users,
       color: 'sky',
-      sub: `Jami: ${data.allMembers} ta`,
+      sub: `Jami: ${data.allMembers ?? 0} ta`,
     },
     {
       label: 'Faol Obunalar',
-      value: data.activeSubscriptions,
+      value: data.activeSubscriptions ?? 0,
       suffix: 'ta',
       icon: BadgeCheck,
       color: 'emerald',
@@ -98,7 +124,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Oylik Daromad',
-      value: formatMoney(data.monthlyRevenue),
+      value: formatMoney(data.monthlyRevenue ?? 0),
       suffix: '',
       icon: Wallet,
       color: 'violet',
@@ -106,7 +132,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Tugayapti',
-      value: data.expiringSoon,
+      value: data.expiringSoon ?? 0,
       suffix: 'ta',
       icon: AlertTriangle,
       color: 'amber',
@@ -133,15 +159,16 @@ export default function DashboardPage() {
     amber: 'text-amber-600',
   };
 
+  const recentPayments: Payment[] = data?.recentPayments ?? [];
+  const expiringMembers: ExpiringMember[] = data?.expiringMembers ?? [];
+
   return (
     <div className="space-y-6 lg:ml-0 ml-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-sky-900">Boshqaruv paneli</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            {new Date().toLocaleDateString('uz-UZ', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+          <p className="text-slate-500 text-sm mt-1">{todayStr}</p>
         </div>
         <div className="flex gap-2">
           {!dbInitialized && (
@@ -201,7 +228,7 @@ export default function DashboardPage() {
               <div className="p-5 space-y-3">
                 {[1,2,3,4].map(i => <div key={i} className="h-8 bg-sky-50 rounded animate-pulse" />)}
               </div>
-            ) : data?.recentPayments.length === 0 ? (
+            ) : recentPayments.length === 0 ? (
               <p className="text-center text-slate-400 py-10 text-sm">To'lovlar mavjud emas</p>
             ) : (
               <table className="w-full text-sm">
@@ -215,7 +242,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data?.recentPayments.map((p) => (
+                  {recentPayments.map((p) => (
                     <tr key={p.id} className="border-t border-sky-50 hover:bg-sky-50/40 transition-colors">
                       <td className="px-5 py-3 font-medium text-slate-700">{p.member_name}</td>
                       <td className="px-3 py-3 text-slate-500 hidden sm:table-cell">{p.plan_name || '—'}</td>
@@ -244,10 +271,10 @@ export default function DashboardPage() {
           <div className="p-4 space-y-3">
             {loading ? (
               [1,2,3].map(i => <div key={i} className="h-14 bg-sky-50 rounded-xl animate-pulse" />)
-            ) : data?.expiringMembers.length === 0 ? (
+            ) : expiringMembers.length === 0 ? (
               <p className="text-center text-slate-400 py-8 text-sm">Hech kim tugamaydi</p>
             ) : (
-              data?.expiringMembers.map((m, i) => {
+              expiringMembers.map((m, i) => {
                 const days = daysLeft(m.end_date);
                 return (
                   <div key={i} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-100 rounded-xl">
