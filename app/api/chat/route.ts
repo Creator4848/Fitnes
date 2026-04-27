@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
 import Groq from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-});
-
 const SYSTEM_PROMPT = `Siz "FitPro" fitnes markazi boshqaruv tizimining AI yordamchisisiz. Siz faqat O'zbek tilida javob berasiz.
 
 Siz quyidagi mavzularda yordam bera olasiz:
@@ -33,6 +29,9 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Lazy init — handler ichida yaratiladi, build vaqtida emas
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
     const completion = await groq.chat.completions.create({
       messages: [
