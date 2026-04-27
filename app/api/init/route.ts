@@ -44,6 +44,18 @@ export async function GET() {
       )
     `;
 
+    // Migration: agar payments jadvali noto'g'ri sxemada bo'lsa, qayta yarat
+    const paymentCols = await sql`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'payments' AND table_schema = 'public'
+    `;
+    const colNames = paymentCols.map((r) => r.column_name);
+    const needsReset = colNames.length > 0 && !colNames.includes('member_id');
+
+    if (needsReset) {
+      await sql`DROP TABLE IF EXISTS payments CASCADE`;
+    }
+
     await sql`
       CREATE TABLE IF NOT EXISTS payments (
         id SERIAL PRIMARY KEY,
@@ -70,9 +82,10 @@ export async function GET() {
       `;
     }
 
-    return NextResponse.json({ message: 'Database initialized successfully' });
+    return NextResponse.json({ message: 'Database initialized successfully', reset: needsReset });
   } catch (error) {
-    console.error('DB init error:', error);
-    return NextResponse.json({ error: 'Database initialization failed' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('DB init error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
